@@ -4,6 +4,41 @@ import { describe, expect, it } from 'vitest'
 import GarminToSsiDiveLogHelper from './index'
 
 describe('GarminToSsiDiveLogHelper', () => {
+  it('accepts multiple files at once', async () => {
+    const { container } = render(<GarminToSsiDiveLogHelper />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const bytes = suuntoOceanScubaFixture()
+    const file1 = new File([bytes], 'dive-1.fit')
+    const file2 = new File([bytes], 'dive-2.fit')
+    Object.defineProperty(input, 'files', { value: [file1, file2], configurable: true })
+
+    fireEvent.input(input)
+
+    await waitFor(() => expect(screen.getByText('1 / 2')).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'dive-1.fit' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'dive-2.fit' })).toBeInTheDocument(),
+    )
+    expect(screen.getByText('2 / 2')).toBeInTheDocument()
+  })
+
+  it('parses files dropped on the page', async () => {
+    render(<GarminToSsiDiveLogHelper />)
+    const bytes = suuntoOceanScubaFixture()
+    const file1 = new File([bytes], 'drop-1.fit')
+    const file2 = new File([bytes], 'drop-2.fit')
+    const dataTransfer = { files: [file1, file2] }
+
+    fireEvent.dragEnter(window, { dataTransfer })
+    fireEvent.drop(window, { dataTransfer })
+
+    await waitFor(() => expect(screen.getByText('1 / 2')).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'drop-1.fit' })).toBeInTheDocument()
+  })
+
   it('renders inside a ToolPage with the expected title', () => {
     render(<GarminToSsiDiveLogHelper />)
 
@@ -15,7 +50,7 @@ describe('GarminToSsiDiveLogHelper', () => {
   it('explains the upload steps and that no data is stored', () => {
     render(<GarminToSsiDiveLogHelper />)
 
-    expect(screen.getByText(/Upload your garmin/i)).toBeInTheDocument()
+    expect(screen.getByText(/Upload or drag and drop your garmin/i)).toBeInTheDocument()
     expect(screen.getByText(/Scan the resulting QR code in the SSI app/i)).toBeInTheDocument()
     expect(screen.getByText(/This page does not store data/i)).toBeInTheDocument()
   })

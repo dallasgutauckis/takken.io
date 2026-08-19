@@ -9,17 +9,18 @@ export type DiveFactory<D extends Dive> = (messages: FitMessages) => D
 
 /**
  * Collects `.fit` files (directly or from `.zip` archives), decodes them with
- * the Garmin FIT SDK, verifies their integrity, and yields one {@link Dive} per
- * file via the injected {@link DiveFactory}. This is the vendor-neutral core;
- * `GarminFiles` and `SuuntoFiles` supply the factory that maps the messages.
+ * the Garmin FIT SDK, verifies their integrity, and yields one `{@link Dive},
+ * fileName` pair per file via the injected {@link DiveFactory}. This is the
+ * vendor-neutral core; `GarminFiles` and `SuuntoFiles` supply the factory that
+ * maps the messages.
  */
 export class FitFiles<D extends Dive> {
   private files: Map<string, Uint8Array> = new Map<string, Uint8Array>()
 
   constructor(private readonly createDive: DiveFactory<D>) {}
 
-  *[Symbol.iterator](): Generator<D> {
-    for (const [, bytes] of this.files.entries()) {
+  *[Symbol.iterator](): Generator<{ name: string; dive: D }> {
+    for (const [name, bytes] of this.files.entries()) {
       const decoder = new Decoder(Stream.fromByteArray(bytes))
 
       // Check integrity
@@ -34,7 +35,7 @@ export class FitFiles<D extends Dive> {
 
       if (errors.length >= 1) throw new Error(errors.join(','))
 
-      yield this.createDive(messages)
+      yield { name, dive: this.createDive(messages) }
     }
   }
 
